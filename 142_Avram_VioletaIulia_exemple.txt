@@ -1,0 +1,262 @@
+--ex12
+
+--1 Afișați rezervările care conțin cel puțin un serviciu cu un preț mai mare decât media prețurilor tuturor serviciilor disponibile în sistem.
+--Pentru fiecare astfel de rezervare, se vor afișa: ID-ul rezervării, ID-ul deținătorului și data de început a rezervării. 
+--Cerința a) subcereri sincronizate în care intervin cel puțin 3 tabele
+
+SELECT 
+    R.ID_REZERVARE,
+    R.ID_DETINATOR,
+    R.DATA_INCEPUT
+FROM REZERVARE R
+WHERE EXISTS (
+    SELECT 1
+    FROM REZERVARE_SERVICIU RS
+    JOIN SERVICIU S ON RS.ID_SERVICIU = S.ID_SERVICIU
+    WHERE RS.ID_REZERVARE = R.ID_REZERVARE
+        AND S.PRET_SERV > (
+            SELECT AVG(PRET_SERV)
+            FROM SERVICIU
+        )
+);
+
+
+--2 Afișați o listă cu toate serviciile și numărul total de rezervări în care au fost implicate, ordonate descrescător.
+--Dacă nu au fost rezervate, se afișează 0.
+--Afișați și dacă serviciul are preț mare (>=80), mediu (40-79), mic (<40). 
+--Cerința d) ordonări și utilizarea funcțiilor NVL și DECODE (în cadrul aceleiași cereri)
+
+SELECT 
+    S.ID_SERVICIU, 
+    S.DENUMIRE_SERV, 
+    NVL(RS.NR_REZ, 0) AS NUMAR_REZERVARI, 
+    DECODE( 
+        SIGN(S.PRET_SERV - 80), 1, 'MARE', 0, 'MARE', 
+        DECODE(SIGN(S.PRET_SERV - 40), 1, 'MEDIU', 'MIC') 
+    ) AS CATEGORIE_PRET 
+FROM SERVICIU S 
+LEFT JOIN ( 
+    SELECT 
+        ID_SERVICIU, 
+        COUNT(*) AS NR_REZ 
+    FROM REZERVARE_SERVICIU 
+    GROUP BY ID_SERVICIU 
+) RS ON S.ID_SERVICIU = RS.ID_SERVICIU 
+ORDER BY NVL(RS.NR_REZ, 0) DESC; 
+
+--3 Afișați pentru fiecare deținător: 
+--Numele scris cu litere mari 
+--Lungimea adresei sale 
+--Câte zile au trecut de la ultima adopție (dacă are) 
+--Status: "activ" dacă are mai mult de 1 adopție validată, altfel "ocazional" 
+--Cerința e) utilizarea a cel puțin 2 funcții pe șiruri de caractere, 2 funcții pe date calendaristice, a cel puțin unei expresii CASE 
+
+SELECT 
+    UPPER(D.NUME_DET) AS NUME, 
+    LENGTH(D.ADRESA_DET) AS LUNGIME_ADRESA, 
+    ROUND(SYSDATE - MAX(A.DATA_ADOPTIE)) AS ZILE_DE_LA_ULTIMA, 
+    CASE 
+        WHEN COUNT(CASE WHEN A.VALIDARE_ADOPTIE = 'DA' THEN 1 END) > 1 
+        THEN 'ACTIV' 
+        ELSE 'OCAZIONAL' 
+    END AS TIP_DETINATOR 
+FROM DETINATOR D 
+LEFT JOIN ADOPTIE A ON D.ID_DETINATOR = A.ID_DETINATOR 
+GROUP BY D.NUME_DET, D.ADRESA_DET; 
+
+--4 Afișați ID-ul angajatului care a încheiat cele mai multe rezervări (îngrijire la domiciliu), împreună cu numărul de rezervări. 
+--Cerința f) utilizarea a cel puțin 1 bloc de cerere (clauza WITH) 
+
+WITH REZ_COUNT AS ( 
+    SELECT 
+        ID_ANGAJAT, 
+        COUNT(*) AS NR_REZERVARI 
+    FROM REZERVARE 
+    GROUP BY ID_ANGAJAT 
+    ) 
+SELECT * 
+FROM REZ_COUNT 
+WHERE NR_REZERVARI = ( 
+    SELECT MAX(NR_REZERVARI) 
+    FROM REZ_COUNT 
+); 
+
+--5 Afișați grădinile care au un număr mediu de habitate mai mare decât media tuturor grădinilor. 
+--Cerințele b) subcereri nesincronizate în clauza FROM si c) grupări de date, funcții grup, filtrare la nivel de grupuri cu subcereri nesincronizate (în clauza de HAVING) 
+
+SELECT 
+    G.ID_GRADINA, 
+    G.NUME_GRAD, 
+    COUNT(H.ID_HABITAT) AS NR_HABITATE 
+FROM GRADINA_BOTANICA G 
+JOIN HABITAT H ON G.ID_GRADINA = H.ID_GRADINA 
+GROUP BY G.ID_GRADINA, G.NUME_GRAD 
+HAVING COUNT(H.ID_HABITAT) > ( 
+    SELECT 
+        AVG(NR) 
+    FROM ( 
+        SELECT 
+            COUNT(*) AS NR
+        FROM HABITAT 
+        GROUP BY ID_GRADINA 
+    ) 
+); 
+
+--ex13
+
+--1 Creșterea cu 5 lei a prețului serviciilor rezervate de măcar 2 ori.
+--actualizare
+
+UPDATE SERVICIU
+SET PRET_SERV = PRET_SERV + 5
+WHERE ID_SERVICIU IN ( 
+    SELECT ID_SERVICIU 
+    FROM REZERVARE_SERVICIU 
+    GROUP BY ID_SERVICIU 
+    HAVING COUNT(*) > 1 
+); 
+
+--2 Actualizarea STATUS-ului plantelor, setându-l DETINUTA pentru plantele care au fost adoptate și li s-a validat adoptia.
+--actualizare
+
+UPDATE PLANTA
+SET STATUS = 'DETINUTA'
+WHERE ID_PLANTA IN (
+    SELECT ID_PLANTA
+    FROM ADOPTIE
+    WHERE VALIDARE_ADOPTIE = 'DA'
+);
+
+--3 Ștergerea din PLASARE a tuturor înregistrărilor pentru plante care au fost adoptate.
+--(Respectarea regulii ca o planta care a fost adoptata sa nu ajungă înapoi in gradina botanica)
+--suprimare
+
+DELETE FROM PLASARE
+WHERE ID_PLANTA IN (
+    SELECT ID_PLANTA
+    FROM ADOPTIE
+    WHERE VALIDARE_ADOPTIE = 'DA'
+);
+--AM INSERAT IN PLUS:
+--INSERT INTO ADOPTIE (ID_ADOPTIE, ID_DETINATOR, ID_PLANTA, VALIDARE_ADOPTIE, DATA_ADOPTIE) 
+--VALUES (ADOPTIE_SEQ.NEXTVAL, 5, 2, 'DA', TO_DATE('2021-05-12', 'YYYY-MM-DD'));
+--PT VERIFICARE
+
+--ex14
+
+--vizualizez fiecare detinator cu adoptii si nr de adoptii
+
+CREATE OR REPLACE VIEW V_DET_ADOPTII AS
+SELECT D.ID_DETINATOR, D.NUME_DET, COUNT(*) AS NR_ADOPTII
+FROM DETINATOR D
+JOIN ADOPTIE A ON D.ID_DETINATOR = A.ID_DETINATOR
+GROUP BY D.ID_DETINATOR, D.NUME_DET;
+
+--este permis un select simplu:
+SELECT *
+FROM V_DET_ADOPTII
+WHERE NR_ADOPTII >= 1;
+
+--nu este permis update pe view cu functii de agregare:
+UPDATE V_DET_ADOPTII
+SET NUME_DET = 'Gigel'
+WHERE ID_DETINATOR = 1;
+
+--ex15
+
+--1 Afișează toate plantele, împreună cu informațiile despre adopție, datele despre deținător și plasările făcute, chiar dacă plantele nu au fost adoptate sau plasate.
+--left join
+
+SELECT 
+    P.ID_PLANTA,
+    P.SPECIE,
+    NVL(TO_CHAR(A.DATA_ADOPTIE, 'YYYY-MM-DD'), 'NU EXISTA') AS DATA_ADOPTIE,
+    CASE 
+        WHEN D.NUME_DET IS NULL THEN 'NU EXISTA'
+        ELSE D.NUME_DET
+    END AS NUME_DET,
+    NVL(TO_CHAR(PL.DATA_PLASARE, 'YYYY-MM-DD'), 'NU EXISTA') AS DATA_PLASARE
+FROM PLANTA P
+LEFT JOIN ADOPTIE A ON P.ID_PLANTA = A.ID_PLANTA
+LEFT JOIN DETINATOR D ON A.ID_DETINATOR = D.ID_DETINATOR
+LEFT JOIN PLASARE PL ON P.ID_PLANTA = PL.ID_PLANTA;
+
+--2 Afișează ID-urile deținătorilor care au rezervat toate serviciile existente într-o singura rezervare.
+--division
+
+SELECT DISTINCT R.ID_DETINATOR
+FROM REZERVARE R
+WHERE NOT EXISTS (
+    SELECT S.ID_SERVICIU
+    FROM SERVICIU S
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM REZERVARE_SERVICIU RS
+        WHERE RS.ID_REZERVARE = R.ID_REZERVARE
+          AND RS.ID_SERVICIU = S.ID_SERVICIU
+    )
+);
+--deci iau deținătorul pentru care nu există serviciu nerezervat de către el
+--ca sa returneze ceva, m am asigurat cineva le a rezervat pe toate
+--dar nu sar de 30 inserări in tabel
+--INSERT INTO REZERVARE_SERVICIU (ID_REZERVARE, ID_SERVICIU) VALUES (12, 1);
+--INSERT INTO REZERVARE_SERVICIU (ID_REZERVARE, ID_SERVICIU) VALUES (12, 2);
+--INSERT INTO REZERVARE_SERVICIU (ID_REZERVARE, ID_SERVICIU) VALUES (12, 3);
+--INSERT INTO REZERVARE_SERVICIU (ID_REZERVARE, ID_SERVICIU) VALUES (12, 4);
+--INSERT INTO REZERVARE_SERVICIU (ID_REZERVARE, ID_SERVICIU) VALUES (12, 5);
+--INSERT INTO REZERVARE_SERVICIU (ID_REZERVARE, ID_SERVICIU) VALUES (12, 6);
+--INSERT INTO REZERVARE_SERVICIU (ID_REZERVARE, ID_SERVICIU) VALUES (12, 7);
+--INSERT INTO REZERVARE_SERVICIU (ID_REZERVARE, ID_SERVICIU) VALUES (12, 8);
+--INSERT INTO REZERVARE_SERVICIU (ID_REZERVARE, ID_SERVICIU) VALUES (12, 9);
+--INSERT INTO REZERVARE_SERVICIU (ID_REZERVARE, ID_SERVICIU) VALUES (12, 10);
+--INSERT INTO REZERVARE_SERVICIU (ID_REZERVARE, ID_SERVICIU) VALUES (12, 11);
+
+--3 Afișează cei mai activi 3 deținători, în funcție de numărul total de adopții validate (VALIDARE_ADOPTIE = 'DA').
+--top n
+
+SELECT *
+FROM (
+    SELECT 
+        D.ID_DETINATOR,
+        D.NUME_DET,
+        COUNT(*) AS NR_ADOPTII
+    FROM DETINATOR D
+    JOIN ADOPTIE A ON D.ID_DETINATOR = A.ID_DETINATOR
+    WHERE A.VALIDARE_ADOPTIE = 'DA'
+    GROUP BY D.ID_DETINATOR, D.NUME_DET
+    ORDER BY COUNT(*) DESC
+)
+WHERE ROWNUM <= 3;
+
+--ex16
+
+--Vrem să afișăm numele deținătorilor care au făcut o rezervare pentru o plantă, dar doar pentru rezervări făcute după 1 ianuarie 2024.
+
+SELECT DISTINCT D.NUME_DET
+FROM DETINATOR D
+JOIN REZERVARE R ON D.ID_DETINATOR = R.ID_DETINATOR
+JOIN PLANTA_DETINUTA PD ON R.ID_PLANTA = PD.ID_PLANTA
+WHERE R.DATA_INCEPUT > TO_DATE('2024-01-01', 'YYYY-MM-DD');
+
+--cererea optimizata
+
+WITH R_FILTRAT AS (
+  SELECT * 
+  FROM REZERVARE
+  WHERE DATA_INCEPUT > TO_DATE('2024-01-01', 'YYYY-MM-DD')
+)
+SELECT DISTINCT D.NUME_DET
+FROM DETINATOR D
+JOIN R_FILTRAT R ON D.ID_DETINATOR = R.ID_DETINATOR
+JOIN PLANTA_DETINUTA PD ON R.ID_PLANTA = PD.ID_PLANTA;
+
+--sau
+
+SELECT DISTINCT D.NUME_DET
+FROM DETINATOR D
+JOIN (
+    SELECT * 
+    FROM REZERVARE 
+    WHERE DATA_INCEPUT > TO_DATE('2024-01-01', 'YYYY-MM-DD')
+) R ON D.ID_DETINATOR = R.ID_DETINATOR
+JOIN PLANTA_DETINUTA PD ON R.ID_PLANTA = PD.ID_PLANTA;
