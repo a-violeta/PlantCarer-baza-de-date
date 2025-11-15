@@ -7,4 +7,4 @@ Executați codul `sql` din fișierul `schema_and_data/creare_inserare.txt`.
 
 ## Utilizare
 ### Exemplu
-Executați codul `sql` din fișsierul `script/exemple_interogari.txt`.
+Executați codul `sql` din fișierul `script/exemple_interogari.txt`.
