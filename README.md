@@ -1,5 +1,5 @@
-# Begin databse for application
-Prezenting the process of creating a simple database for a plant-caring aplication. For more details check out `docs/proiect.pdf` and `docs/Cerinte_proiect.docx`
+# Beginner database for application
+Presenting the process of creating a simple database for a plant-caring application. For more details check out `docs/proiect.pdf` and `docs/Cerinte_proiect.docx`
 
 ## Install and insert data
 ### Example
