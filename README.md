@@ -1,10 +1,10 @@
-# Baza de date a unei aplicații
-Prezentarea procesului de dezvoltare a unei baze de date pentru o aplicație de îngrijire a plantelor. Pentru descrierea amplă a proiectului consultați fișierele `docs/proiect.pdf` și `docs/Cerinte_proiect.docx`
+# Begin databse for application
+Prezenting the process of creating a simple database for a plant-caring aplication. For more details check out `docs/proiect.pdf` and `docs/Cerinte_proiect.docx`
 
-## Instalare și populare
-### Exemplu
-Executați codul `sql` din fișierul `schema_and_data/creare_inserare.txt`.
+## Install and insert data
+### Example
+Use code `sql` from the file `schema_and_data/creare_inserare.txt`.
 
-## Utilizare
-### Exemplu
-Executați codul `sql` din fișierul `script/exemple_interogari.txt`.
+## Use
+### Example
+Use code `sql` from the file `script/exemple_interogari.txt`.
